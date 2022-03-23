@@ -6,14 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	elasticsearch "github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
-	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	elasticsearch "github.com/elastic/go-elasticsearch/v7"
+	"github.com/elastic/go-elasticsearch/v7/esapi"
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 const supportedWebhookVersion = "4"
@@ -173,7 +174,18 @@ func (e *AlertmanagerElasticsearchExporter) HttpHandler(w http.ResponseWriter, r
 		log.Error(err)
 		return
 	}
+
 	defer res.Body.Close()
+
+	// send request to k8s-admin
+	if msg.CommonLabels["alertname"] == "PodRestartTooMany>20" {
+		podRestartToManyEvent := new(PodRestartToManyEvent)
+
+		_, err := podRestartToManyEvent.HandleEvent(msg)
+		if err != nil {
+			log.Error(err)
+		}
+	}
 
 	log.Debugf("received and stored alert: %v", msg.CommonLabels)
 	e.prometheus.alertsSuccessful.WithLabelValues().Inc()

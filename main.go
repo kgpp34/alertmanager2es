@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
-	elasticsearch "github.com/elastic/go-elasticsearch/v7"
-	"github.com/jessevdk/go-flags"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
-	"github.com/webdevops/alertmanager2es/config"
 	"net/http"
 	"os"
 	"path"
 	"runtime"
 	"strings"
+	"sync"
+
+	elasticsearch "github.com/elastic/go-elasticsearch/v7"
+	"github.com/jessevdk/go-flags"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+	"github.com/webdevops/alertmanager2es/config"
 )
 
 const (
@@ -19,12 +21,15 @@ const (
 )
 
 var (
-	argparser *flags.Parser
-	opts      config.Opts
+	argparser     *flags.Parser
+	opts          config.Opts
+	registryEvent sync.Once
 
 	// Git version information
 	gitCommit = "<unknown>"
 	gitTag    = "<unknown>"
+
+	eventFactory = make(map[string]Event)
 )
 
 func main() {
@@ -36,6 +41,9 @@ func main() {
 	log.Infof("init exporter")
 	exporter := &AlertmanagerElasticsearchExporter{}
 	exporter.Init()
+
+	log.Infof("init event factory")
+	initEventFactory()
 
 	cfg := elasticsearch.Config{
 		Addresses: opts.Elasticsearch.Addresses,
@@ -51,6 +59,7 @@ func main() {
 	// daemon mode
 	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer(exporter)
+
 }
 
 // init argparser and parse/validate arguments
@@ -113,4 +122,10 @@ func startHttpServer(exporter *AlertmanagerElasticsearchExporter) {
 	http.HandleFunc("/webhook", exporter.HttpHandler)
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
+}
+
+func initEventFactory() {
+	registryEvent.Do(func() {
+		eventFactory["PodStartToMany>20"] = new(PodRestartToManyEvent)
+	})
 }
