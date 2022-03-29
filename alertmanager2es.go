@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/webdevops/alertmanager2es/utils"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -177,11 +178,19 @@ func (e *AlertmanagerElasticsearchExporter) HttpHandler(w http.ResponseWriter, r
 
 	defer res.Body.Close()
 
+	// get k8s-admin-url from ini config file
+	parser := utils.IniParser{}
+	if err := parser.Load("./config/request.ini"); err != nil {
+		log.Error(err)
+	}
+	k8sAdminUrl := parser.GetString("k8s-admin", "url")
+	log.Info("get k8s admin url success")
+
 	// send request to k8s-admin
 	if msg.CommonLabels["alertname"] == "PodRestartTooMany>20" {
 		podRestartToManyEvent := new(PodRestartToManyEvent)
 
-		_, err := podRestartToManyEvent.HandleEvent(msg)
+		_, err := podRestartToManyEvent.HandleEvent(msg, k8sAdminUrl)
 		if err != nil {
 			log.Error(err)
 		}

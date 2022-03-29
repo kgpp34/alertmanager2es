@@ -43,7 +43,7 @@ func main() {
 	exporter.Init()
 
 	log.Infof("init event factory")
-	initEventFactory()
+	//initEventFactory()
 
 	cfg := elasticsearch.Config{
 		Addresses: opts.Elasticsearch.Addresses,
@@ -124,8 +124,8 @@ func startHttpServer(exporter *AlertmanagerElasticsearchExporter) {
 	log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
 }
 
-func initEventFactory() {
-	registryEvent.Do(func() {
-		eventFactory["PodStartToMany>20"] = new(PodRestartToManyEvent)
-	})
-}
+//func initEventFactory() {
+//	registryEvent.Do(func() {
+//		eventFactory["PodStartToMany>20"] = new(PodRestartToManyEvent)
+//	})
+//}

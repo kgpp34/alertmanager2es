@@ -5,7 +5,7 @@ import (
 	"github.com/webdevops/alertmanager2es/utils"
 )
 
-const k8sAdminUrl = "http://172.31.199.48:8666/k8s-admin-proc/namespace/dealPodRestartTooManyHandler"
+//const k8sAdminUrl = "http://172.31.199.48:8666/k8s-admin-proc/namespace/dealPodRestartTooManyHandler"
 
 type PodRestartToManyEvent struct {
 }
@@ -15,7 +15,9 @@ type PodRestartTooManyDTO struct {
 	PodName   string `json:"podName"`
 }
 
-func (event *PodRestartToManyEvent) HandleEvent(alert AlertmanagerEntry) (bool, error) {
+func (event *PodRestartToManyEvent) HandleEvent(alert AlertmanagerEntry, url string) (bool, error) {
+	//get k8s admin url from ini config file
+
 	// get alert message
 	for _, alertEvent := range alert.Alerts {
 		namespaceName := alertEvent.Labels["namespace"]
@@ -26,17 +28,7 @@ func (event *PodRestartToManyEvent) HandleEvent(alert AlertmanagerEntry) (bool, 
 		}
 
 		// construct post request
-		h := utils.NewHttpSend(k8sAdminUrl)
-
-		podRestartTooManyDTO := new(PodRestartTooManyDTO)
-		podRestartTooManyDTO.Namespace = namespaceName
-		podRestartTooManyDTO.PodName = podName
-
-		//serialize
-		// jsonData, err := json.Marshal(podRestartTooManyDTO)
-		// if err != nil {
-		// 	log.Error("serialize podRestartTooManyDTO failed")
-		// }
+		h := utils.NewHttpSend(url)
 
 		h.SetBody(map[string]string{
 			"podName":       podName,
