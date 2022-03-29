@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_interface "github.com/webdevops/alertmanager2es/model/interface"
 	"github.com/webdevops/alertmanager2es/utils"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	elasticsearch "github.com/elastic/go-elasticsearch/v7"
@@ -28,8 +29,8 @@ const (
 var (
 	k8sAdminPodRestartUrl         = ""
 	k8sAdminNamespaceLowHealthUrl = ""
-	k8sTransFactory               sync.Once
-	eventFatory                   = make(map[string]_interface.Event)
+	//k8sTransFactory               sync.Once
+	//eventFatory                   = make(map[string]_interface.Event)
 )
 
 type (
@@ -95,7 +96,7 @@ func (e *AlertmanagerElasticsearchExporter) Init() {
 	)
 	prometheus.MustRegister(e.prometheus.alertsSuccessful)
 
-	initIniParser()
+	e.InitParser()
 }
 
 func (e *AlertmanagerElasticsearchExporter) ConnectElasticsearch(cfg elasticsearch.Config, indexName string) {
@@ -222,17 +223,28 @@ func (e *AlertmanagerElasticsearchExporter) k8sAdminTransHandler(msg Alertmanage
 	}
 }
 
-func initIniParser() {
+func (e *AlertmanagerElasticsearchExporter) InitParser() {
 	log.Info("start init Ini Parser")
+	path, err := exec.LookPath(os.Args[0])
+	if err != nil {
+		log.Error(err)
+	}
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		log.Error(err)
+	}
+
+	println(abs)
 
 	parser := utils.IniParser{}
-	if err := parser.Load("./config/request.ini"); err != nil {
+	if err := parser.Load("request.ini"); err != nil {
 		log.Error(err)
 	}
 
 	k8sAdminPodRestartUrl = parser.GetString("k8s-admin", "PodRestartUrl")
-	log.Infof("get the k8s-admin-pod-restart-handler-url : %s", k8sAdminPodRestartUrl)
+	//log.Infof("get the k8s-admin-pod-restart-handler-url : %s", k8sAdminPodRestartUrl)
 
 	k8sAdminNamespaceLowHealthUrl = parser.GetString("k8s-admin", "NamespaceLowHealthUrl")
-	log.Infof("get the k8s-admin-namespace-low-health-handler-url : %s", k8sAdminNamespaceLowHealthUrl)
+	//log.Infof("get the k8s-admin-namespace-low-health-handler-url : %s", k8sAdminNamespaceLowHealthUrl)
 }

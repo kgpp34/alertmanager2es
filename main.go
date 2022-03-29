@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/webdevops/alertmanager2es/model"
 	"github.com/webdevops/alertmanager2es/model/interface"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	elasticsearch "github.com/elastic/go-elasticsearch/v7"
 	"github.com/jessevdk/go-flags"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -62,6 +62,7 @@ func main() {
 	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer(exporter)
 
+	exporter.InitParser()
 }
 
 // init argparser and parse/validate arguments
