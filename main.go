@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/webdevops/alertmanager2es/model"
+	"github.com/webdevops/alertmanager2es/model/interface"
 	"net/http"
 	"os"
 	"path"
@@ -29,7 +31,7 @@ var (
 	gitCommit = "<unknown>"
 	gitTag    = "<unknown>"
 
-	eventFactory = make(map[string]Event)
+	eventFactory = make(map[string]_interface.Event)
 )
 
 func main() {
@@ -39,7 +41,7 @@ func main() {
 	log.Info(string(opts.GetJson()))
 
 	log.Infof("init exporter")
-	exporter := &AlertmanagerElasticsearchExporter{}
+	exporter := &model.AlertmanagerElasticsearchExporter{}
 	exporter.Init()
 
 	log.Infof("init event factory")
@@ -111,7 +113,7 @@ func initArgparser() {
 }
 
 // start and handle prometheus handler
-func startHttpServer(exporter *AlertmanagerElasticsearchExporter) {
+func startHttpServer(exporter *model.AlertmanagerElasticsearchExporter) {
 	// healthz
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := fmt.Fprint(w, "Ok"); err != nil {

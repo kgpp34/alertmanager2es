@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	log "github.com/sirupsen/logrus"
@@ -16,12 +16,11 @@ type PodRestartTooManyDTO struct {
 }
 
 func (event *PodRestartToManyEvent) HandleEvent(alert AlertmanagerEntry, url string) (bool, error) {
-	//get k8s admin url from ini config file
 
 	// get alert message
 	for _, alertEvent := range alert.Alerts {
 		namespaceName := alertEvent.Labels["namespace"]
-		podName := alertEvent.Labels["pod"]
+		podName := alertEvent.Labels["label-svc"]
 		if len(podName) == 0 || len(namespaceName) == 0 {
 			log.Error("podName or namespaceName is null, return")
 			return false, nil
@@ -31,8 +30,8 @@ func (event *PodRestartToManyEvent) HandleEvent(alert AlertmanagerEntry, url str
 		h := utils.NewHttpSend(url)
 
 		h.SetBody(map[string]string{
-			"podName":       podName,
-			"namespaceName": namespaceName,
+			"podName":   podName,
+			"namespace": namespaceName,
 		})
 
 		// send request

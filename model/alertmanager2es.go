@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"bytes"
@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	_interface "github.com/webdevops/alertmanager2es/model/interface"
 	"github.com/webdevops/alertmanager2es/utils"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	elasticsearch "github.com/elastic/go-elasticsearch/v7"
@@ -18,7 +20,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const supportedWebhookVersion = "4"
+const (
+	supportedWebhookVersion = "4"
+	alertLabel              = "alertname"
+)
+
+var (
+	k8sAdminPodRestartUrl         = ""
+	k8sAdminNamespaceLowHealthUrl = ""
+	k8sTransFactory               sync.Once
+	eventFatory                   = make(map[string]_interface.Event)
+)
 
 type (
 	AlertmanagerElasticsearchExporter struct {
@@ -82,6 +94,8 @@ func (e *AlertmanagerElasticsearchExporter) Init() {
 		[]string{},
 	)
 	prometheus.MustRegister(e.prometheus.alertsSuccessful)
+
+	initIniParser()
 }
 
 func (e *AlertmanagerElasticsearchExporter) ConnectElasticsearch(cfg elasticsearch.Config, indexName string) {
@@ -178,24 +192,47 @@ func (e *AlertmanagerElasticsearchExporter) HttpHandler(w http.ResponseWriter, r
 
 	defer res.Body.Close()
 
-	// get k8s-admin-url from ini config file
-	parser := utils.IniParser{}
-	if err := parser.Load("./config/request.ini"); err != nil {
-		log.Error(err)
-	}
-	k8sAdminUrl := parser.GetString("k8s-admin", "url")
+	log.Debugf("received and stored alert: %v", msg.CommonLabels)
+	e.prometheus.alertsSuccessful.WithLabelValues().Inc()
+
+	e.k8sAdminTransHandler(msg)
+}
+
+func (e *AlertmanagerElasticsearchExporter) k8sAdminTransHandler(msg AlertmanagerEntry) {
+
 	log.Info("get k8s admin url success")
 
-	// send request to k8s-admin
-	if msg.CommonLabels["alertname"] == "PodRestartTooMany>20" {
+	// send request to k8s-admin, 这一块后面会抽成工厂模式
+	if msg.CommonLabels[alertLabel] == "PodRestartTooMany>20" {
 		podRestartToManyEvent := new(PodRestartToManyEvent)
 
-		_, err := podRestartToManyEvent.HandleEvent(msg, k8sAdminUrl)
+		_, err := podRestartToManyEvent.HandleEvent(msg, k8sAdminPodRestartUrl)
 		if err != nil {
 			log.Error(err)
 		}
 	}
 
-	log.Debugf("received and stored alert: %v", msg.CommonLabels)
-	e.prometheus.alertsSuccessful.WithLabelValues().Inc()
+	if msg.CommonLabels[alertLabel] == "NamespaceLowHealthLevel" {
+		namespaceLowHealthEvent := new(NamespaceLowHealthEvent)
+
+		_, err := namespaceLowHealthEvent.HandleEvent(msg, k8sAdminNamespaceLowHealthUrl)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+}
+
+func initIniParser() {
+	log.Info("start init Ini Parser")
+
+	parser := utils.IniParser{}
+	if err := parser.Load("./config/request.ini"); err != nil {
+		log.Error(err)
+	}
+
+	k8sAdminPodRestartUrl = parser.GetString("k8s-admin", "PodRestartUrl")
+	log.Infof("get the k8s-admin-pod-restart-handler-url : %s", k8sAdminPodRestartUrl)
+
+	k8sAdminNamespaceLowHealthUrl = parser.GetString("k8s-admin", "NamespaceLowHealthUrl")
+	log.Infof("get the k8s-admin-namespace-low-health-handler-url : %s", k8sAdminNamespaceLowHealthUrl)
 }
